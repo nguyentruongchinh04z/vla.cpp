@@ -167,6 +167,9 @@ if __name__ == "__main__":
                 break
             step_id += 1
 
+            print("Step %d: reward=%.2f, done=%s, truncated=%s, info=%s" %
+                  (step_id, reward, done, truncated, info))
+
             if done or truncated or episode_aborted:
                 avg_t = sum(run_times) / len(run_times)
                 inference_times.append(avg_t)

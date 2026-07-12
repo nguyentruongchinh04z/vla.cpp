@@ -16,6 +16,14 @@ import os
 os.environ.setdefault("MUJOCO_GL", "egl")
 os.environ.setdefault("PYOPENGL_PLATFORM", "egl")
 
+# robosuite's EGL path parses CUDA_VISIBLE_DEVICES as comma-separated integers.
+# In containers this is often set to "all", which crashes on int("all").
+if os.environ.get("MUJOCO_EGL_DEVICE_ID") is None:
+	cuda_visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+	if cuda_visible and not all(part.strip().isdigit() for part in cuda_visible.split(",")):
+		os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+		os.environ["MUJOCO_EGL_DEVICE_ID"] = "0"
+
 import sys
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]

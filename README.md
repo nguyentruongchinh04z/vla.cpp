@@ -20,10 +20,10 @@ The binary can drive robots across **CPU**, **Apple Silicon**, or **CUDA**, scal
 - CMake ≥ 3.22
 - A C++17 compiler (GCC 11+ or Clang 14+)
 - CUDA 12.x (optional - required only for GPU builds)
-- `libzmq3-dev`, `libprotobuf-dev`, `protobuf-compiler`
+- `pkg-config`, `libzmq3-dev`, `cppzmq-dev`, `libprotobuf-dev`, `protobuf-compiler`
 
 ```bash
-sudo apt-get install -y libzmq3-dev libprotobuf-dev protobuf-compiler
+sudo apt-get install -y pkg-config libzmq3-dev cppzmq-dev libprotobuf-dev protobuf-compiler
 ```
 
 ### From source

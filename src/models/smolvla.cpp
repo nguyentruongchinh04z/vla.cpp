@@ -29,6 +29,9 @@
 #ifdef GGML_USE_METAL
 #include "ggml-metal.h"
 #endif
+#ifdef GGML_USE_OPENVINO
+#include "ggml-openvino.h"
+#endif
 
 #include "nlohmann/json.hpp"
 
@@ -348,7 +351,8 @@ namespace {
 // One pre-norm SigLIP encoder block (SmolVLM2 tower), same graph as the other
 // in-tree models. Bidirectional attention, F32 score accumulation, tanh GELU.
 ggml_tensor * build_siglip_layer(ggml_context * C, const SigLipLayerW & w, ggml_tensor * x,
-                                 int64_t seq, int64_t heads, int64_t head_dim, int64_t hidden, float ln_eps) {
+                                 int64_t seq, int64_t heads, int64_t head_dim, int64_t hidden,
+                                 float ln_eps, bool use_flash_attn, ggml_tensor * attn_mask) {
     const float scale = 1.0f / std::sqrt((float) head_dim);
     ggml_tensor * n1 = ggml_add(C, ggml_mul(C, ggml_norm(C, x, ln_eps), w.ln1w), w.ln1b);
     ggml_tensor * q = ggml_add(C, ggml_mul_mat(C, w.Wq, n1), w.bq);
@@ -356,10 +360,21 @@ ggml_tensor * build_siglip_layer(ggml_context * C, const SigLipLayerW & w, ggml_
     ggml_tensor * v = ggml_add(C, ggml_mul_mat(C, w.Wv, n1), w.bv);
     ggml_tensor * Q = ggml_cont(C, ggml_permute(C, ggml_reshape_3d(C, q, head_dim, heads, seq), 0, 2, 1, 3));
     ggml_tensor * K = ggml_cont(C, ggml_permute(C, ggml_reshape_3d(C, k, head_dim, heads, seq), 0, 2, 1, 3));
-    ggml_tensor * V = ggml_cont(C, ggml_permute(C, ggml_reshape_3d(C, v, head_dim, heads, seq), 1, 2, 0, 3));
-    ggml_tensor * kq = ggml_mul_mat(C, K, Q); ggml_mul_mat_set_prec(kq, GGML_PREC_F32);
-    ggml_tensor * aw = ggml_soft_max_ext(C, kq, nullptr, scale, 0.0f);
-    ggml_tensor * att = ggml_reshape_2d(C, ggml_cont(C, ggml_permute(C, ggml_mul_mat(C, V, aw), 0, 2, 1, 3)), hidden, seq);
+    ggml_tensor * att = nullptr;
+    if (use_flash_attn) {
+        ggml_tensor * V = ggml_cont(C, ggml_permute(C, ggml_reshape_3d(C, v, head_dim, heads, seq), 0, 2, 1, 3));
+        ggml_tensor * K_f16 = ggml_cast(C, K, GGML_TYPE_F16);
+        ggml_tensor * V_f16 = ggml_cast(C, V, GGML_TYPE_F16);
+        ggml_tensor * fa = ggml_flash_attn_ext(C, Q, K_f16, V_f16,
+                                               attn_mask, scale, 0.0f, 0.0f);
+        ggml_flash_attn_ext_set_prec(fa, GGML_PREC_F32);
+        att = ggml_reshape_2d(C, fa, hidden, seq);
+    } else {
+        ggml_tensor * V = ggml_cont(C, ggml_permute(C, ggml_reshape_3d(C, v, head_dim, heads, seq), 1, 2, 0, 3));
+        ggml_tensor * kq = ggml_mul_mat(C, K, Q); ggml_mul_mat_set_prec(kq, GGML_PREC_F32);
+        ggml_tensor * aw = ggml_soft_max_ext(C, kq, nullptr, scale, 0.0f);
+        att = ggml_reshape_2d(C, ggml_cont(C, ggml_permute(C, ggml_mul_mat(C, V, aw), 0, 2, 1, 3)), hidden, seq);
+    }
     ggml_tensor * h1 = ggml_add(C, x, ggml_add(C, ggml_mul_mat(C, w.Wo, att), w.bo));
     ggml_tensor * n2 = ggml_add(C, ggml_mul(C, ggml_norm(C, h1, ln_eps), w.ln2w), w.ln2b);
     ggml_tensor * ff = ggml_add(C, ggml_mul_mat(C, w.Wfc2, ggml_gelu(C, ggml_add(C, ggml_mul_mat(C, w.Wfc1, n2), w.bfc1))), w.bfc2);
@@ -710,7 +725,11 @@ std::vector<float> sinusoidal_time_emb(double timestep, int64_t dim,
 
 ggml_tensor * rope_q_or_k(ggml_context * ctx, ggml_tensor * x,
                           ggml_tensor * positions, const Config & cfg) {
-    return ggml_rope_ext(ctx, x, positions,  nullptr,
+    // The OpenVINO frontend aliases every graph-input position tensor to the
+    // single name "inp_pos". SmolVLA has distinct prefix, full, and rebased
+    // position inputs, so interpose a CONT node to preserve their identities.
+    ggml_tensor * positions_local = ggml_cont(ctx, positions);
+    return ggml_rope_ext(ctx, x, positions_local, nullptr,
                          cfg.rope_n_dims, cfg.rope_mode,  0,
                          cfg.rope_freq_base,  1.f,
                           0.f,  1.f,
@@ -730,6 +749,7 @@ static inline ggml_tensor * mm_w(ggml_context * ctx, ggml_tensor * w, ggml_tenso
 ggml_tensor * build_vlm_layer(ggml_context * ctx, const VlmLayerW & w,
                               ggml_tensor * x_in, ggml_tensor * mask,
                               ggml_tensor * positions, const Config & cfg,
+                              bool openvino_fa,
                               ggml_tensor ** k_out, ggml_tensor ** v_out) {
     ggml_tensor * x_norm = ggml_mul(ctx, ggml_rms_norm(ctx, x_in, cfg.rms_eps), w.Wln_in);
     ggml_tensor * q_proj = mm_w(ctx, w.Wq, x_norm);
@@ -748,6 +768,10 @@ ggml_tensor * build_vlm_layer(ggml_context * ctx, const VlmLayerW & w,
     ggml_tensor * Q = ggml_permute(ctx, q_rope, 0, 2, 1, 3);
     ggml_tensor * K = ggml_permute(ctx, k_rope, 0, 2, 1, 3);
     ggml_tensor * V = ggml_permute(ctx, v_h,    0, 2, 1, 3);
+    if (openvino_fa) {
+        K = ggml_cast(ctx, K, GGML_TYPE_F16);
+        V = ggml_cast(ctx, V, GGML_TYPE_F16);
+    }
     const float scale = 1.f / std::sqrt(static_cast<float>(cfg.head_dim));
     ggml_tensor * fa = ggml_flash_attn_ext(ctx, Q, K, V, mask, scale,
                                             0.f,  0.f);
@@ -767,7 +791,8 @@ ggml_tensor * build_vlm_layer(ggml_context * ctx, const VlmLayerW & w,
 ggml_tensor * build_expert_self_attn_layer(
     ggml_context * ctx, const ExpertLayerW & w,
     ggml_tensor * x_in, ggml_tensor * cached_K, ggml_tensor * cached_V,
-    ggml_tensor * positions_full, ggml_tensor * mask_full, const Config & cfg)
+    ggml_tensor * positions_full, ggml_tensor * mask_full, const Config & cfg,
+    bool openvino_fa)
 {
     ggml_tensor * x_norm = ggml_mul(ctx, ggml_rms_norm(ctx, x_in, cfg.rms_eps), w.Wln_in);
     ggml_tensor * q_proj = mm_w(ctx, w.Wq, x_norm);
@@ -787,6 +812,10 @@ ggml_tensor * build_expert_self_attn_layer(
     ggml_tensor * Q  = ggml_permute(ctx, q_rope, 0, 2, 1, 3);
     ggml_tensor * Kp = ggml_permute(ctx, K_full, 0, 2, 1, 3);
     ggml_tensor * Vp = ggml_permute(ctx, V_full, 0, 2, 1, 3);
+    if (openvino_fa) {
+        Kp = ggml_cast(ctx, Kp, GGML_TYPE_F16);
+        Vp = ggml_cast(ctx, Vp, GGML_TYPE_F16);
+    }
     const float scale = 1.f / std::sqrt(static_cast<float>(cfg.head_dim));
     ggml_tensor * fa = ggml_flash_attn_ext(ctx, Q, Kp, Vp, mask_full, scale,
                                             0.f,  0.f);
@@ -815,7 +844,7 @@ ggml_tensor * build_expert_cross_attn_layer(
     ggml_context * ctx, const ExpertLayerW & w,
     ggml_tensor * x_in, ggml_tensor * K_repro, ggml_tensor * V_repro,
     ggml_tensor * positions_rebased, ggml_tensor * mask_prefix_only,
-    const Config & cfg)
+    const Config & cfg, bool openvino_fa)
 {
     ggml_tensor * x_norm = ggml_mul(ctx, ggml_rms_norm(ctx, x_in, cfg.rms_eps), w.Wln_in);
 
@@ -826,6 +855,10 @@ ggml_tensor * build_expert_cross_attn_layer(
     ggml_tensor * Q  = ggml_permute(ctx, q_rope,  0, 2, 1, 3);
     ggml_tensor * Kp = ggml_permute(ctx, K_repro, 0, 2, 1, 3);
     ggml_tensor * Vp = ggml_permute(ctx, V_repro, 0, 2, 1, 3);
+    if (openvino_fa) {
+        Kp = ggml_cast(ctx, Kp, GGML_TYPE_F16);
+        Vp = ggml_cast(ctx, Vp, GGML_TYPE_F16);
+    }
     const float scale = 1.f / std::sqrt(static_cast<float>(cfg.head_dim));
     ggml_tensor * fa = ggml_flash_attn_ext(ctx, Q, Kp, Vp, mask_prefix_only, scale,
                                             0.f,  0.f);
@@ -842,6 +875,39 @@ ggml_tensor * build_expert_cross_attn_layer(
 }
 
 namespace {
+
+static bool backend_is_openvino(ggml_backend_t backend) {
+#ifdef GGML_USE_OPENVINO
+    return ggml_backend_is_openvino(backend);
+#else
+    (void) backend;
+    return false;
+#endif
+}
+
+// The OpenVINO GGML frontend uses tensor names as map keys. llama.cpp graphs
+// name their tensors uniquely, but these in-tree SmolVLA graphs historically
+// reused generated names such as "(reshaped) (permuted)". Unrelated Q/K/V
+// tensors could therefore resolve through the same map key.
+static void ensure_graph_tensor_names(ggml_cgraph * graph) {
+    auto ensure_name = [](ggml_tensor * tensor) {
+        if (!tensor) {
+            return;
+        }
+        char name[GGML_MAX_NAME];
+        std::snprintf(name, sizeof(name), "smolvla_%zx",
+                      static_cast<size_t>(reinterpret_cast<uintptr_t>(tensor)));
+        ggml_set_name(tensor, name);
+    };
+    const int n_nodes = ggml_graph_n_nodes(graph);
+    for (int i = 0; i < n_nodes; ++i) {
+        ggml_tensor * node = ggml_graph_node(graph, i);
+        ensure_name(node);
+        for (int j = 0; j < GGML_MAX_SRC; ++j) {
+            ensure_name(node->src[j]);
+        }
+    }
+}
 
 static void vram_probe(ggml_backend_t backend, const char * label) {
     ggml_backend_dev_t dev = ggml_backend_get_device(backend);
@@ -943,6 +1009,19 @@ SmolVLAModelArch* smolvla_load_impl(const std::string& mmproj_path,
         std::printf("vla: backend = Metal\n");
     } else {
         std::fprintf(stderr, "vla: ggml_backend_metal_init failed; falling back to CPU\n");
+    }
+#elif defined(GGML_USE_OPENVINO)
+    m->backend = ggml_backend_openvino_init(0);
+    if (m->backend) {
+        const char * requested_device = std::getenv("GGML_OPENVINO_DEVICE");
+        if (!requested_device || requested_device[0] == '\0') {
+            requested_device = "CPU";
+        }
+        std::printf("vla: backend = %s (requested device %s)\n",
+                    ggml_backend_name(m->backend), requested_device);
+        std::printf("vla: OpenVINO resolved device is reported by the OpenVINO backend above\n");
+    } else {
+        std::fprintf(stderr, "vla: ggml_backend_openvino_init failed; falling back to CPU\n");
     }
 #endif
     if (!m->backend) {
@@ -1093,7 +1172,7 @@ SmolVLAModelArch* smolvla_load_impl(const std::string& mmproj_path,
         const int64_t grid = m->vit_image / P, n_patches = grid * grid;
         const int64_t c4 = H * m->vit_scale * m->vit_scale;
         const char * VP = "model.vlm_with_expert.vlm.model.vision_model.";
-        m->vit_patch_w   = ggml_new_tensor_4d(ctx, GGML_TYPE_F32, P, P, 3, H);
+        m->vit_patch_w   = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, 3 * P * P, H);
         m->vit_patch_b   = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, H);
         m->vit_pos       = ggml_new_tensor_2d(ctx, GGML_TYPE_F32, H, n_patches);
         m->vit_post_ln_w = ggml_new_tensor_1d(ctx, GGML_TYPE_F32, H);
@@ -1296,6 +1375,7 @@ bool build_compute_graph(SmolVLAModelArch* m, int n_views) {
     }
     const Config & cfg_model = m->cfg;
     Config cfg = cfg_model;
+    const bool openvino_fa = backend_is_openvino(m->backend);
 
     cfg.n_img = cfg_model.n_img * int64_t(n_views);
 
@@ -1355,7 +1435,7 @@ bool build_compute_graph(SmolVLAModelArch* m, int n_views) {
         ggml_tensor * h = prefix_embs;
         for (int i = 0; i < cfg.n_layers; ++i) {
             h = build_vlm_layer(ctx, m->vlm_layers[i], h, mask_prefill_f16, pos_prefill,
-                                cfg_built, &k_cache[i], &v_cache[i]);
+                                cfg_built, openvino_fa, &k_cache[i], &v_cache[i]);
         }
     }
 
@@ -1384,11 +1464,13 @@ bool build_compute_graph(SmolVLAModelArch* m, int n_views) {
             if (m->expert_layers[li].is_self_attn) {
                 h = build_expert_self_attn_layer(ctx, m->expert_layers[li], h,
                                                  k_cache[li], v_cache[li],
-                                                 pos_full, mask_full_f16, cfg_built);
+                                                 pos_full, mask_full_f16, cfg_built,
+                                                 openvino_fa);
             } else {
                 h = build_expert_cross_attn_layer(ctx, m->expert_layers[li], h,
                                                   xk_cache[li], xv_cache[li],
-                                                  pos_rebased, mask_pfx_only_f16, cfg_built);
+                                                  pos_rebased, mask_pfx_only_f16, cfg_built,
+                                                  openvino_fa);
             }
         }
         ggml_tensor * h_final = ggml_mul(ctx, ggml_rms_norm(ctx, h, cfg.rms_eps), m->Wnorm_expert);
@@ -1400,6 +1482,7 @@ bool build_compute_graph(SmolVLAModelArch* m, int n_views) {
 
     ggml_cgraph * gf = ggml_new_graph_custom(ctx,  16384,  false);
     ggml_build_forward_expand(gf, x_t);
+    ensure_graph_tensor_names(gf);
 
     ggml_backend_buffer_type_t buft = ggml_backend_get_default_buffer_type(m->backend);
     ggml_gallocr_t galloc = ggml_gallocr_new(buft);
@@ -1455,6 +1538,7 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
     m->stats = Stats{};
 
     Config cfg = m->cfg;
+    const bool openvino_fa = backend_is_openvino(m->backend);
 
     const size_t per_view_n = size_t(m->cfg.n_img * cfg.hidden);
 
@@ -1485,26 +1569,44 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
         const int64_t s = m->vit_scale, c4 = H * s * s, K = m->vit_n_tokens;
         const auto t_vision_begin = clock::now();
 
-        // Graph A: SigLIP ViT (conv patch-embed -> +pos -> layers -> post_ln), plain sequential positions.
+        // Graph A: SigLIP ViT (patch projection -> +pos -> layers -> post_ln),
+        // plain sequential positions. Patch extraction is performed on the host
+        // below instead of through ggml_conv_2d: the OpenVINO IM2COL translator
+        // currently asks OpenVINO for a static shape while its Pad output is
+        // still dynamic, which makes this otherwise static graph fail to compile.
         ggml_init_params vpA = { size_t(256) * 1024 * 1024, nullptr, true };
         ggml_context * VC = ggml_init(vpA);
         if (!VC) { std::fprintf(stderr, "vla(smolvla): ggml_init(vision ctx) failed\n"); return {}; }
-        ggml_tensor * t_px = ggml_new_tensor_3d(VC, GGML_TYPE_F32, m->vit_image, m->vit_image, 3); ggml_set_input(t_px);
-        ggml_tensor * conv = ggml_conv_2d(VC, m->vit_patch_w, t_px, (int) m->vit_patch, (int) m->vit_patch, 0, 0, 1, 1);
-        ggml_tensor * patches = ggml_cont(VC, ggml_transpose(VC, ggml_reshape_2d(VC, conv, n_patches, H)));
+        const int64_t patch_dim = 3 * m->vit_patch * m->vit_patch;
+        ggml_tensor * t_patches = ggml_new_tensor_2d(VC, GGML_TYPE_F32, patch_dim, n_patches);
+        ggml_set_input(t_patches);
+        const bool vision_flash_attn = openvino_fa;
+        ggml_tensor * attn_mask = nullptr;
+        if (vision_flash_attn) {
+            attn_mask = ggml_new_tensor_2d(VC, GGML_TYPE_F16, n_patches, n_patches);
+            ggml_set_input(attn_mask);
+        }
+        ggml_tensor * patches = ggml_mul_mat(VC, m->vit_patch_w, t_patches);
         ggml_tensor * hv = ggml_add(VC, ggml_add(VC, patches, m->vit_patch_b), m->vit_pos);
         for (int64_t i = 0; i < m->vit_layers; ++i)
-            hv = build_siglip_layer(VC, m->vit[i], hv, n_patches, m->vit_heads, H / m->vit_heads, H, m->vit_ln_eps);
+            hv = build_siglip_layer(VC, m->vit[i], hv, n_patches, m->vit_heads,
+                                    H / m->vit_heads, H, m->vit_ln_eps,
+                                    vision_flash_attn, attn_mask);
         ggml_tensor * post_ln = ggml_add(VC, ggml_mul(VC, ggml_norm(VC, hv, m->vit_ln_eps), m->vit_post_ln_w), m->vit_post_ln_b);
         ggml_set_output(post_ln);
         ggml_cgraph * gA = ggml_new_graph_custom(VC, 8192, false);
         ggml_build_forward_expand(gA, post_ln);
+        ensure_graph_tensor_names(gA);
         ggml_gallocr_t vgA = ggml_gallocr_new(ggml_backend_get_default_buffer_type(m->backend));
         if (!vgA || !ggml_gallocr_alloc_graph(vgA, gA)) {
             std::fprintf(stderr, "vla(smolvla): vision gallocr A alloc failed\n");
             if (vgA) ggml_gallocr_free(vgA);
             ggml_free(VC);
             return {};
+        }
+        if (attn_mask) {
+            std::vector<ggml_fp16_t> attn_mask_host((size_t) n_patches * n_patches, 0);
+            ggml_backend_tensor_set(attn_mask, attn_mask_host.data(), 0, ggml_nbytes(attn_mask));
         }
 
         // Graph B: pixel-shuffle connector, a single bias-free matmul (c4 -> hidden).
@@ -1516,6 +1618,7 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
         ggml_set_output(img_embeds);
         ggml_cgraph * gB = ggml_new_graph(MC);
         ggml_build_forward_expand(gB, img_embeds);
+        ensure_graph_tensor_names(gB);
         ggml_gallocr_t vgB = ggml_gallocr_new(ggml_backend_get_default_buffer_type(m->backend));
         if (!vgB || !ggml_gallocr_alloc_graph(vgB, gB)) {
             std::fprintf(stderr, "vla(smolvla): vision gallocr B alloc failed\n");
@@ -1524,11 +1627,28 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
             return {};
         }
 
-        std::vector<float> chw, post_host((size_t) H * n_patches), shuf_host((size_t) c4 * K);
+        std::vector<float> chw, patch_host((size_t) patch_dim * n_patches),
+                           post_host((size_t) H * n_patches), shuf_host((size_t) c4 * K);
         bool vok = true;
         for (int v = 0; v < n_views && vok; ++v) {
             if (!preprocess_image_chw(in.images[v], m->vit_image, chw)) { vok = false; break; }
-            ggml_backend_tensor_set(t_px, chw.data(), 0, ggml_nbytes(t_px));
+            for (int64_t py = 0; py < grid; ++py) {
+                for (int64_t px = 0; px < grid; ++px) {
+                    float * patch = patch_host.data() + (py * grid + px) * patch_dim;
+                    for (int64_t c = 0; c < 3; ++c) {
+                        for (int64_t ky = 0; ky < m->vit_patch; ++ky) {
+                            const float * src = chw.data()
+                                + c * m->vit_image * m->vit_image
+                                + (py * m->vit_patch + ky) * m->vit_image
+                                + px * m->vit_patch;
+                            std::memcpy(patch + c * m->vit_patch * m->vit_patch
+                                             + ky * m->vit_patch,
+                                        src, m->vit_patch * sizeof(float));
+                        }
+                    }
+                }
+            }
+            ggml_backend_tensor_set(t_patches, patch_host.data(), 0, ggml_nbytes(t_patches));
             if (ggml_backend_graph_compute(m->backend, gA) != GGML_STATUS_SUCCESS) {
                 std::fprintf(stderr, "vla(smolvla): vision compute A failed (view %d)\n", v); vok = false; break;
             }
@@ -1772,7 +1892,7 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
         ggml_tensor * h = prefix_embs;
         for (int i = 0; i < cfg.n_layers; ++i) {
             h = build_vlm_layer(ctx, m->vlm_layers[i], h, mask_prefill_f16, pos_prefill,
-                                cfg, &k_cache[i], &v_cache[i]);
+                                cfg, openvino_fa, &k_cache[i], &v_cache[i]);
         }
     }
 
@@ -1825,11 +1945,13 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
             if (m->expert_layers[li].is_self_attn) {
                 h = build_expert_self_attn_layer(ctx, m->expert_layers[li], h,
                                                  K_ref[li], V_ref[li],
-                                                 pos_full, mask_full_f16, cfg);
+                                                 pos_full, mask_full_f16, cfg,
+                                                 openvino_fa);
             } else {
                 h = build_expert_cross_attn_layer(ctx, m->expert_layers[li], h,
                                                   xk_cache[li], xv_cache[li],
-                                                  pos_rebased, mask_prefix_only_f16, cfg);
+                                                  pos_rebased, mask_prefix_only_f16, cfg,
+                                                  openvino_fa);
             }
         }
         ggml_tensor * h_final = ggml_mul(ctx, ggml_rms_norm(ctx, h, cfg.rms_eps), m->Wnorm_expert);
@@ -1871,6 +1993,7 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
             ggml_build_forward_expand(gf_pre, k_cache[i]);
             ggml_build_forward_expand(gf_pre, v_cache[i]);
         }
+        ensure_graph_tensor_names(gf_pre);
         const auto t0 = clock::now();
         if (ggml_backend_graph_compute(m->backend, gf_pre) != GGML_STATUS_SUCCESS) {
             std::fprintf(stderr, "vla: ggml prefill compute failed\n");
@@ -1889,6 +2012,7 @@ std::vector<float> predict_impl(SmolVLAModelArch* m, const Inputs& in) {
     {
         ggml_cgraph * gf = ggml_new_graph_custom(ctx,  16384,  false);
         ggml_build_forward_expand(gf, x_t);
+        ensure_graph_tensor_names(gf);
         const auto t0 = clock::now();
         if (ggml_backend_graph_compute(m->backend, gf) != GGML_STATUS_SUCCESS) {
             std::fprintf(stderr, "vla: ggml compute failed\n");
