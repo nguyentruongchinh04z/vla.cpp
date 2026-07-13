@@ -18,8 +18,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import sim.libero  # noqa: F401  side-effect: registers gymnasium envs
-from utils.service import RobotInferenceClient
-from utils.sim_adapters.libero import LIBEROSimAdapter
+from utils.clients.openvino import OpenVINOInferenceClient
+from utils.adapters.libero import OpenVINOPipelineAdapter
 
 import time
 import argparse
@@ -28,10 +28,12 @@ import gymnasium as gym
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--task", type=str, default="libero_object/task_0",
-        help="The task to test on, select one of ['libero_10', 'libero_spatial', 'libero_object', 'libero_goal', 'libero_90'] "
-             "with the corresponding task_id, e.g. 'libero_object/task_0'."
+        "--task", type=str, default="libero_object",
+        help="LIBERO suite: one of ['libero_10', 'libero_spatial', "
+             "'libero_object', 'libero_goal', 'libero_90'].",
     )
+    parser.add_argument("--task-id", type=int, default=0,
+        help="Task variation id within the suite.")
     parser.add_argument(
         "--n-episodes", type=int, default=30,
         help="The number of episodes to run for evaluation"
@@ -64,19 +66,23 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    client = RobotInferenceClient(host=args.host, port=args.port, api_token=None)
-    client = LIBEROSimAdapter(client=client)
+    client = OpenVINOInferenceClient(
+        host=args.host, 
+        port=args.port, 
+        api_token=None, 
+        n_action_steps=8
+    )
+    client = OpenVINOPipelineAdapter(client=client)
 
-    output_dir = Path(args.output_dir) / client.arch / args.task
+    output_dir = Path(args.output_dir) / args.task
     output_dir.mkdir(parents=True, exist_ok=True)
 
     env = gym.make(
-        args.task,
+        f"{args.task}/task_{args.task_id}",
         seed=args.seed,
         video_fps=args.fps,
         output_video_dir=output_dir,
         video_view_mode=args.view_mode,
-
     )
 
     success_count, inference_times = 0.0, []

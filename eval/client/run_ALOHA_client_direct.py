@@ -48,7 +48,7 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from client.vla_cpp_client import VlaCppClient, ARCH_PRESETS
+from utils.clients.vla_cpp import VlaCppClient, ARCH_PRESETS
 
 import rclpy
 from rclpy.node import Node

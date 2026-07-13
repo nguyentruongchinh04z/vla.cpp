@@ -33,9 +33,11 @@ class GR00TN16SimplerParser:
     def parse_action(self, action: dict[str, Any]) -> dict[str, Any]:
         return {f"action.{key}": value[0][0] for key, value in action.items()}
 
+
 SIMPLER_PARSER_REGISTRY = {
     "gr00t": GR00TN16SimplerParser,
 }
+
 
 class SimplerSimAdapter(BasePipelineAdapter):
     def __init__(self, client: Any):

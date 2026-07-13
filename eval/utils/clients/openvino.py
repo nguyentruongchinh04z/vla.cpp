@@ -19,6 +19,8 @@ from typing import Any, Callable, Dict
 import zmq
 import msgpack
 import numpy as np
+from collections import deque
+
 
 class MsgSerializer:
     @staticmethod
@@ -53,96 +55,14 @@ class MsgSerializer:
             return {"__ndarray_class__": True, "as_npy": output.getvalue()}
         return obj
 
+
 @dataclass
 class EndpointHandler:
     handler: Callable
     requires_input: bool = True
 
-class RobotInferenceServer:
 
-    def __init__(
-        self,
-        policy: Any,
-        host: str = "*",
-        port: int = 5555,
-        api_token: str = None
-    ):
-        self.running = True
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REP)
-        self.socket.bind(f"tcp://{host}:{port}")
-        self._endpoints: dict[str, EndpointHandler] = {}
-        self.api_token = api_token
-
-        self.register_endpoint("ping", self._handle_ping, requires_input=False)
-        self.register_endpoint("kill", self._kill_server, requires_input=False)
-
-        self.register_endpoint("get_action", policy.select_action)
-        self.register_endpoint("reset", policy.reset, requires_input=False)
-        self.register_endpoint("get_arch", policy.get_arch, requires_input=False)
-
-    def _kill_server(self):
-
-        self.running = False
-
-    def _handle_ping(self) -> dict:
-
-        return {"status": "ok", "message": "Server is running"}
-
-    def register_endpoint(self, name: str, handler: Callable, requires_input: bool = True):
-
-        self._endpoints[name] = EndpointHandler(handler, requires_input)
-
-    def _validate_token(self, request: dict) -> bool:
-
-        if self.api_token is None:
-            return True
-        return request.get("api_token") == self.api_token
-
-    def run(self):
-        addr = self.socket.getsockopt_string(zmq.LAST_ENDPOINT)
-        print(f"Server is ready and listening on {addr}")
-        while self.running:
-            try:
-                message = self.socket.recv()
-                request = MsgSerializer.from_bytes(message)
-
-                if not self._validate_token(request):
-                    self.socket.send(
-                        MsgSerializer.to_bytes({"error": "Unauthorized: Invalid API token"})
-                    )
-                    continue
-
-                endpoint = request.get("endpoint", "get_action")
-
-                if endpoint not in self._endpoints:
-                    raise ValueError(f"Unknown endpoint: {endpoint}")
-
-                handler = self._endpoints[endpoint]
-                result = (
-                    handler.handler(request.get("data", {}))
-                    if handler.requires_input
-                    else handler.handler()
-                )
-                self.socket.send(MsgSerializer.to_bytes(result))
-            except Exception as e:
-                print(f"Error in server: {e}")
-                import traceback
-
-                print(traceback.format_exc())
-                self.socket.send(MsgSerializer.to_bytes({"error": str(e)}))
-
-    @staticmethod
-    def start_server(policy: Any, host: str = "*", port: int = 5555, api_token: str = None):
-        server = RobotInferenceServer(
-            policy,
-            host=host,
-            port=port,
-            api_token=api_token
-        )
-        server.run()
-
-class RobotInferenceClient:
+class OpenVINOInferenceClient:
 
     def __init__(
         self,
@@ -150,6 +70,7 @@ class RobotInferenceClient:
         port: int = 5555,
         timeout_ms: int = 15000,
         api_token: str = None,
+        n_action_steps: int = 1,
     ):
         self.context = zmq.Context()
         self.host = host
@@ -157,6 +78,8 @@ class RobotInferenceClient:
         self.timeout_ms = timeout_ms
         self.api_token = api_token
         self._init_socket()
+
+        self._action_queue = deque(maxlen=n_action_steps)
 
     def _init_socket(self):
 
@@ -197,13 +120,12 @@ class RobotInferenceClient:
 
         self.socket.close()
         self.context.term()
+    
+    def reset(self) -> None:
+        self._action_queue.clear()
 
     def get_action(self, observations: Dict[str, Any]) -> np.ndarray:
-        return self.call_endpoint("get_action", observations)
-
-    def reset(self) -> None:
-        self.call_endpoint("reset", requires_input=False)
-
-    def get_arch(self) -> str:
-        response = self.call_endpoint("get_arch", requires_input=False)
-        return response.get("arch", "unknown")
+        if not self._action_queue:
+            action_chunk = self.call_endpoint("get_action", observations)
+            self._action_queue.extend(action_chunk)
+        return self._action_queue.popleft()

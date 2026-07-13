@@ -23,8 +23,8 @@ sys.path.insert(0, str(ROOT))
 import gymnasium as gym
 
 import sim.simpler  # noqa: F401  side-effect: registers gymnasium envs
-from utils.sim_adapters.simpler import SimplerSimAdapter
-from client.vla_cpp_client import VlaCppSimplerGr00tClient
+from utils.adapters.simpler import SimplerSimAdapter
+from utils.clients.vla_cpp import VlaCppSimplerGr00tClient
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

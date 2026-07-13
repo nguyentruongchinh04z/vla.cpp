@@ -23,28 +23,8 @@ from lerobot.processor.env_processor import LiberoProcessorStep
 from lerobot.processor.pipeline import PolicyProcessorPipeline
 from lerobot.utils.constants import ACTION
 
-class BasePipelineAdapter:
-    def __init__(self, client: Any = None):
-        self._client = client
+from utils.adapters.base import BasePipelineAdapter
 
-    def reset(self):
-        return self._client.reset()
-
-    def get_action(self, obs: dict[str, Any]) -> np.ndarray:
-        parsed_obs = self.parse_observation(obs)
-        action = self._client.get_action(parsed_obs)
-        parsed_action = self.parse_action(action)
-        return parsed_action
-
-    def get_action_from_queue(self) -> np.ndarray:
-        action = self._client.get_action_from_queue()
-        return self.parse_action(action)
-
-    def parse_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
-        raise NotImplementedError
-
-    def parse_action(self, action: np.ndarray) -> np.ndarray:
-        raise NotImplementedError
 
 class LeRobotPipelineAdapter(BasePipelineAdapter):
     def __init__(self, client: Any = None):
@@ -67,6 +47,7 @@ class LeRobotPipelineAdapter(BasePipelineAdapter):
         action_transition = self._postprocessor(action_transition)
         action = action_transition[ACTION].cpu().numpy()[0]
         return action
+
 
 class Evo1PipelineAdapter(BasePipelineAdapter):
     def __init__(self, client: Any = None):
@@ -107,6 +88,7 @@ class Evo1PipelineAdapter(BasePipelineAdapter):
         if math.isclose(den, 0.0):
             return np.zeros(3)
         return (quat[:3] * 2.0 * math.acos(quat[3])) / den
+
 
 class Gr00tPipelineAdapter(BasePipelineAdapter):
 
@@ -149,7 +131,21 @@ class Gr00tPipelineAdapter(BasePipelineAdapter):
         action[6] = -1.0 if action[6] > 0.5 else 1.0
         return action
 
+
 class Gr00tN15PipelineAdapter(Gr00tPipelineAdapter):
 
     def parse_action(self, action: np.ndarray) -> np.ndarray:
         return np.asarray(action[:7], dtype=np.float32).copy()
+
+
+class OpenVINOPipelineAdapter(LeRobotPipelineAdapter):
+    def parse_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
+        parsed_obs = super().parse_observation(obs)
+        return {
+            "images": {
+                "image": parsed_obs["observation.images.image"][None],
+                "image2": parsed_obs["observation.images.image2"][None],
+            },
+            "state": parsed_obs["observation.state"][None],
+            "task": [parsed_obs["task"]],
+        }
