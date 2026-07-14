@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import gymnasium as gym
-
 import sim.simpler  # noqa: F401  side-effect: registers gymnasium envs
+
 from utils.adapters.simpler import SimplerSimAdapter
 from utils.clients.vla_cpp import VlaCppSimplerGr00tClient
 

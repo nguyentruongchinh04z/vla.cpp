@@ -17,13 +17,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import time
+import argparse
+import gymnasium as gym
+
 import sim.libero  # noqa: F401  side-effect: registers gymnasium envs
 from utils.clients.openvino import OpenVINOInferenceClient
 from utils.adapters.libero import OpenVINOPipelineAdapter
 
-import time
-import argparse
-import gymnasium as gym
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
