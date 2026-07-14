@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from typing import Any
-from utils.sim_adapters.base import BasePipelineAdapter
+from utils.adapters.base import BasePipelineAdapter
 
 class GR00TN16SimplerParser:
 

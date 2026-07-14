@@ -64,13 +64,23 @@ if __name__ == "__main__":
         "--seed", type=int, default=42,
         help="Seed for the LIBERO environment reset/init-state rollout (default: 42)."
     )
+    parser.add_argument(
+        "--n-action-steps", type=int, default=1,
+        help="How many actions to replay from each predicted chunk before "
+             "re-querying vla-server. Mirrors lerobot's PI0Policy._action_queue / "
+             "SmolVLAPolicy._action_queue. Defaults to 1 (re-predict every step - "
+             "historical SmolVLA path). For π0 set to the checkpoint's "
+             "`n_action_steps` (pi0_libero_base=10, pi0_libero_finetuned_v044=50); "
+             "for BitVLA pass 8 (= NUM_ACTIONS_CHUNK).",
+    )
+
     args = parser.parse_args()
 
     client = OpenVINOInferenceClient(
         host=args.host, 
         port=args.port, 
         api_token=None, 
-        n_action_steps=8
+        n_action_steps=args.n_action_steps
     )
     client = OpenVINOPipelineAdapter(client=client)
 

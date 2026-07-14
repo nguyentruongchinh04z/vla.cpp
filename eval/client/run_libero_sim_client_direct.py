@@ -84,7 +84,6 @@ if __name__ == "__main__":
              "`n_action_steps` (pi0_libero_base=10, pi0_libero_finetuned_v044=50); "
              "for BitVLA pass 8 (= NUM_ACTIONS_CHUNK).",
     )
-
     parser.add_argument(
         "--stats-json", type=str, default=None,
         help="[bitvla/gr00t_n1_6/gr00t_n1_7] path to dataset_statistics.json. Default for bitvla: "
@@ -166,9 +165,6 @@ if __name__ == "__main__":
                 episode_aborted = True
                 break
             step_id += 1
-
-            print("Step %d: reward=%.2f, done=%s, truncated=%s, info=%s" %
-                  (step_id, reward, done, truncated, info))
 
             if done or truncated or episode_aborted:
                 avg_t = sum(run_times) / len(run_times)

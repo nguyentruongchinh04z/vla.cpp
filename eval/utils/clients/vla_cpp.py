@@ -85,10 +85,10 @@ def _load_pb():
 
     if "vla_pb2" in sys.modules:
         return sys.modules["vla_pb2"]
-    proto_file = Path(os.environ.get(
-        "VLA_CPP_PROTO",
-        Path(__file__).resolve().parents[2] / "src" / "serving" / "vla.proto",
-    ))
+    # Default to <vla.cpp>/src/serving/vla.proto. This file lives at
+    # <vla.cpp>/eval/utils/clients/vla_cpp.py, so repo root is parents[3].
+    default_proto = Path(__file__).resolve().parents[3] / "src" / "serving" / "vla.proto"
+    proto_file = Path(os.environ.get("VLA_CPP_PROTO", str(default_proto)))
     if not proto_file.exists():
         raise FileNotFoundError(
             f"vla.proto not found at {proto_file}. "

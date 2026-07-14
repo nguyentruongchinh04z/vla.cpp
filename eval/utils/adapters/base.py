@@ -13,7 +13,22 @@
 # limitations under the License.
 
 from typing import Any
+
+import torch
 import numpy as np
+
+
+def convert_nested_dict(d):
+    result = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            result[k] = convert_nested_dict(v)
+        elif isinstance(v, np.ndarray):
+            result[k] = torch.from_numpy(v)
+        else:
+            result[k] = v
+    return result
+
 
 class BasePipelineAdapter:
     def __init__(self, client: Any = None):

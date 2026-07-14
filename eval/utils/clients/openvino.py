@@ -80,6 +80,7 @@ class OpenVINOInferenceClient:
         self._init_socket()
 
         self._action_queue = deque(maxlen=n_action_steps)
+        self.n_action_steps = n_action_steps
 
     def _init_socket(self):
 
@@ -127,5 +128,5 @@ class OpenVINOInferenceClient:
     def get_action(self, observations: Dict[str, Any]) -> np.ndarray:
         if not self._action_queue:
             action_chunk = self.call_endpoint("get_action", observations)
-            self._action_queue.extend(action_chunk)
+            self._action_queue.extend(action_chunk[:self.n_action_steps])
         return self._action_queue.popleft()
