@@ -1,0 +1,158 @@
+<mxfile host="app.diagrams.net" modified="2026-07-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="physicalai-openvino-venv-trace" name="PhysicalAI to OpenVINO .venv C++ Runtime">
+    <mxGraphModel dx="1600" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="lane_client" value="Client and Python Server" style="swimlane;html=1;startSize=28;fillColor=#f8f9fa;strokeColor=#666666;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="20" width="1560" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_physicalai" value="PhysicalAI Inference Package (.venv/site-packages/physicalai)" style="swimlane;html=1;startSize=28;fillColor=#eef7ff;strokeColor=#4b89dc;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="180" width="1560" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_ov_python" value="OpenVINO Python API (.venv/site-packages/openvino)" style="swimlane;html=1;startSize=28;fillColor=#f4f0ff;strokeColor=#7e57c2;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="430" width="1560" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_ov_cpp" value="OpenVINO C++ Runtime Components in .venv" style="swimlane;html=1;startSize=28;fillColor=#f0fbf3;strokeColor=#43a047;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="640" width="1560" height="210" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_notes" value="Definitions and Environment Notes" style="swimlane;html=1;startSize=28;fillColor=#fff8e8;strokeColor=#c58b21;fontStyle=1;horizontal=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="870" width="1560" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c1" value="Client / evaluator&#xa;msgpack request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="60" y="70" width="170" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c2" value="physicalai/src/run_server.py&#xa;OpenVINOInferenceServer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="280" y="70" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c3" value="_get_action()&#xa;policy.predict_action_chunk" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="550" y="70" width="220" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" value="DEVICE_TYPE&#xa;CPU / GPU -> HETERO:GPU,CPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="820" y="70" width="250" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="p1" value="InferenceModel&#xa;load manifest, detect backend/device" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="60" y="240" width="240" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="Manifest&#xa;openvino -> smolvla.xml&#xa;runner/pre/post components" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="340" y="240" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="Preprocessors&#xa;ResizeSmolVLA, NewLine, StatsNormalizer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="610" y="220" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="OVTokenizer&#xa;tokenizer.xml via CPU OpenVINOAdapter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="610" y="310" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p5" value="_prepare_inputs&#xa;flatten and filter adapter inputs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="910" y="240" width="230" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p6" value="SinglePass.run&#xa;OpenVINOAdapter.predict" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="240" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p7" value="Postprocessors&#xa;StatsDenormalizer, ActionChunkTrimmer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="325" width="260" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ovp1" value="openvino Python API&#xa;__init__.py, _ov_api.py" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;" vertex="1" parent="1">
+          <mxGeometry x="130" y="490" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ovp2" value="ov.Core.read_model&#xa;IR frontend reads smolvla.xml/bin" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;" vertex="1" parent="1">
+          <mxGeometry x="410" y="490" width="250" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ovp3" value="ov.Core.compile_model&#xa;device: CPU or HETERO:GPU,CPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;" vertex="1" parent="1">
+          <mxGeometry x="720" y="490" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ovp4" value="CompiledModel(inputs)&#xa;main model and tokenizer model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="490" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cpp1" value="_pyopenvino*.so&#xa;RPATH $ORIGIN/../openvino/libs&#xa;NEEDED libopenvino.so.2621" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" vertex="1" parent="1">
+          <mxGeometry x="80" y="695" width="260" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cpp2" value="libopenvino.so.2621&#xa;main OpenVINO C++ runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" vertex="1" parent="1">
+          <mxGeometry x="390" y="695" width="220" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cpp3" value="Device plugins&#xa;intel_cpu, intel_gpu, intel_npu&#xa;auto, hetero, auto_batch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" vertex="1" parent="1">
+          <mxGeometry x="660" y="695" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cpp4" value="IR frontend&#xa;libopenvino_ir_frontend.so.2621&#xa;reads OpenVINO XML/BIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" vertex="1" parent="1">
+          <mxGeometry x="960" y="695" width="250" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="cpp5" value="Runtime support&#xa;libtbb.so.12, tbbmalloc, hwloc&#xa;headers: core/compiled_model/infer_request/tensor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" vertex="1" parent="1">
+          <mxGeometry x="1260" y="695" width="270" height="85" as="geometry" />
+        </mxCell>
+
+        <mxCell id="note1" value="OpenVINO Tokenizers present: libopenvino_tokenizers.so.&#xa;Current .venv warns it is binary-incompatible: tokenizer 2026.1.0.0 vs OpenVINO 2026.2.1." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="70" y="900" width="480" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="note2" value="Native vla.cpp and ggml are separate C++ runtime paths.&#xa;They are defined in the report but intentionally not drawn here." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="620" y="900" width="430" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="note3" value="InferenceModel -> C++ backend means OpenVINO _pyopenvino/libopenvino/plugins, not vla.cpp/src/model.cpp." style="shape=note;whiteSpace=wrap;html=1;backgroundOutline=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1120" y="900" width="400" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e1" value="msgpack request" style="endArrow=block;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="c1" target="c2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="dispatch get_action" style="endArrow=block;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="c2" target="c3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="call predict_action_chunk" style="endArrow=block;html=1;rounded=0;strokeColor=#666666;" edge="1" parent="1" source="c3" target="p1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="load manifest" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="instantiate preprocessing pipeline" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="prepare task text" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="tokenized prompt + tensors" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p4" target="p5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="filtered model inputs" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p5" target="p6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="raw model outputs" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" edge="1" parent="1" source="p6" target="p7">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="create OpenVINOAdapter" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;" edge="1" parent="1" source="p1" target="ovp1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="read IR model" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;" edge="1" parent="1" source="ovp1" target="ovp2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="ov.Model" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;" edge="1" parent="1" source="ovp2" target="ovp3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e13" value="compiled model" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;" edge="1" parent="1" source="ovp3" target="ovp4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e14" value="Python native binding call" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" edge="1" parent="1" source="ovp4" target="cpp1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e15" value="linked runtime library" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" edge="1" parent="1" source="cpp1" target="cpp2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e16" value="compile/infer on selected device" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" edge="1" parent="1" source="cpp2" target="cpp3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e17" value="load IR frontend" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" edge="1" parent="1" source="cpp2" target="cpp4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e18" value="threading/runtime support" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" edge="1" parent="1" source="cpp2" target="cpp5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e19" value="tokenizer inference path" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;dashed=1;" edge="1" parent="1" source="p4" target="ovp4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
