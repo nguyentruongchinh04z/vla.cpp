@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="physicalai-openvino-venv-trace" name="PhysicalAI to OpenVINO .venv C++ Runtime">
-        <mxGraphModel dx="2180" dy="1310" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
+        <mxGraphModel dx="1275" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1000" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -28,8 +28,12 @@
                 <mxCell id="p2" value="Manifest&#xa;openvino -&gt; smolvla.xml&#xa;runner/pre/post components" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" parent="lane_physicalai" vertex="1">
                     <mxGeometry x="320" y="140" width="230" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="e4" value="load&amp;nbsp;&lt;div&gt;manifest&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" parent="lane_physicalai" source="p1" target="p2" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="e4" value="load&amp;nbsp;&lt;div&gt;manifest&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;exitX=0.791;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;" parent="lane_physicalai" source="p1" target="p2" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="210" y="175"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="p6" value="SinglePass.run&#xa;OpenVINOAdapter.predict" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" parent="lane_physicalai" vertex="1">
                     <mxGeometry x="1310" y="40" width="220" height="70" as="geometry"/>
@@ -51,10 +55,11 @@
                 <mxCell id="p4" value="OVTokenizer&#xa;tokenizer.xml via CPU OpenVINOAdapter" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4b89dc;" parent="lane_physicalai" vertex="1">
                     <mxGeometry x="670" y="152.08" width="260" height="70" as="geometry"/>
                 </mxCell>
-                <mxCell id="e7" value="tokenized&amp;nbsp;&lt;div&gt;prompt + tensors&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" parent="lane_physicalai" source="p4" target="p5" edge="1">
+                <mxCell id="e7" value="tokenized&amp;nbsp;&lt;div&gt;prompt + tensors&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" parent="lane_physicalai" source="p4" target="p5" edge="1">
                     <mxGeometry x="-0.2241" y="7" relative="1" as="geometry">
                         <Array as="points">
-                            <mxPoint x="1075" y="190"/>
+                            <mxPoint x="1000" y="170"/>
+                            <mxPoint x="1075" y="170"/>
                         </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
@@ -64,6 +69,9 @@
                 </mxCell>
                 <mxCell id="e5" value="instantiate&amp;nbsp;&lt;div&gt;preprocessing&amp;nbsp;&lt;/div&gt;&lt;div&gt;pipeline&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#4b89dc;" parent="lane_physicalai" source="p2" target="p3" edge="1">
                     <mxGeometry x="-0.0013" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="435" y="80"/>
+                        </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
@@ -93,7 +101,7 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="ovp4" value="CompiledModel(inputs)&#xa;main model and tokenizer model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7e57c2;" parent="lane_ov_python" vertex="1">
-                    <mxGeometry x="1190" y="80" width="250" height="70" as="geometry"/>
+                    <mxGeometry x="1190" y="70" width="250" height="70" as="geometry"/>
                 </mxCell>
                 <mxCell id="e13" value="compiled model" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;" parent="lane_ov_python" source="ovp3" target="ovp4" edge="1">
                     <mxGeometry relative="1" as="geometry"/>
@@ -113,13 +121,17 @@
                 <mxCell id="cpp3" value="Device plugins&#xa;intel_cpu, intel_gpu, intel_npu&#xa;auto, hetero, auto_batch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" parent="lane_ov_cpp" vertex="1">
                     <mxGeometry x="850" y="150" width="250" height="85" as="geometry"/>
                 </mxCell>
-                <mxCell id="e16" value="compile/infer&amp;nbsp;&lt;div&gt;0on selected device&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" parent="lane_ov_cpp" source="cpp2" target="cpp3" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="e16" value="compile/infer&amp;nbsp;&lt;div&gt;0on selected device&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;entryX=0.006;entryY=0.59;entryDx=0;entryDy=0;entryPerimeter=0;" parent="lane_ov_cpp" source="cpp2" target="cpp3" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="510" y="200"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="cpp5" value="Runtime support&#xa;libtbb.so.12, tbbmalloc, hwloc&#xa;headers: core/compiled_model/infer_request/tensor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" parent="lane_ov_cpp" vertex="1">
-                    <mxGeometry x="1260" y="100" width="270" height="85" as="geometry"/>
+                    <mxGeometry x="1260" y="97" width="270" height="85" as="geometry"/>
                 </mxCell>
-                <mxCell id="e18" value="threading/runtime&amp;nbsp;&lt;div&gt;support&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="lane_ov_cpp" target="cpp5" edge="1">
+                <mxCell id="e18" value="threading/runtime&amp;nbsp;&lt;div&gt;support&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.996;exitY=0.569;exitDx=0;exitDy=0;exitPerimeter=0;" parent="lane_ov_cpp" source="cpp2" target="cpp5" edge="1">
                     <mxGeometry x="0.7101" y="3" relative="1" as="geometry">
                         <mxPoint x="580" y="133.5" as="sourcePoint"/>
                         <mxPoint x="1270" y="133.5" as="targetPoint"/>
@@ -129,8 +141,12 @@
                 <mxCell id="cpp4" value="IR frontend&#xa;libopenvino_ir_frontend.so.2621&#xa;reads OpenVINO XML/BIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#43a047;" parent="lane_ov_cpp" vertex="1">
                     <mxGeometry x="850" y="40" width="250" height="85" as="geometry"/>
                 </mxCell>
-                <mxCell id="e17" value="load IR frontend" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;" parent="lane_ov_cpp" source="cpp2" target="cpp4" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="e17" value="load IR frontend" style="endArrow=block;html=1;rounded=0;strokeColor=#43a047;entryX=0;entryY=0.471;entryDx=0;entryDy=0;entryPerimeter=0;" parent="lane_ov_cpp" source="cpp2" target="cpp4" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="510" y="80"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
                 <mxCell id="lane_notes" value="Definitions and Environment Notes" style="swimlane;html=1;startSize=28;fillColor=#fff8e8;strokeColor=#c58b21;fontStyle=1;horizontal=1;" parent="1" vertex="1">
                     <mxGeometry x="20" y="901" width="1560" height="100" as="geometry"/>
@@ -151,7 +167,11 @@
                     <mxGeometry relative="1" as="geometry"/>
                 </mxCell>
                 <mxCell id="e3" value="call&amp;nbsp;&lt;div&gt;predict_action_chunk&lt;/div&gt;" style="endArrow=block;html=1;rounded=0;strokeColor=#666666;" parent="1" source="c3" target="p1" edge="1">
-                    <mxGeometry x="-0.6612" y="-3" relative="1" as="geometry">
+                    <mxGeometry x="-0.3793" y="-10" relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1085" y="150"/>
+                            <mxPoint x="160" y="150"/>
+                        </Array>
                         <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
@@ -166,8 +186,12 @@
                         </Array>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="e19" value="tokenizer inference path" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;dashed=1;" parent="1" source="p4" target="ovp4" edge="1">
-                    <mxGeometry relative="1" as="geometry"/>
+                <mxCell id="e19" value="tokenizer inference path" style="endArrow=block;html=1;rounded=0;strokeColor=#7e57c2;dashed=1;exitX=1;exitY=0.75;exitDx=0;exitDy=0;entryX=0.241;entryY=0.002;entryDx=0;entryDy=0;entryPerimeter=0;" parent="1" source="p4" target="ovp4" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1270" y="385"/>
+                        </Array>
+                    </mxGeometry>
                 </mxCell>
             </root>
         </mxGraphModel>
