@@ -23,8 +23,8 @@ sys.path.insert(0, str(ROOT))
 import gymnasium as gym
 
 import sim.libero  # noqa: F401  side-effect: registers gymnasium envs
-from client.vla_cpp_client import VlaCppClient, ARCH_PRESETS
-from client.adapters import (
+from utils.clients.vla_cpp import VlaCppClient, ARCH_PRESETS
+from utils.adapters.libero import (
     LeRobotPipelineAdapter,
     Evo1PipelineAdapter,
     Gr00tPipelineAdapter,
@@ -84,7 +84,6 @@ if __name__ == "__main__":
              "`n_action_steps` (pi0_libero_base=10, pi0_libero_finetuned_v044=50); "
              "for BitVLA pass 8 (= NUM_ACTIONS_CHUNK).",
     )
-
     parser.add_argument(
         "--stats-json", type=str, default=None,
         help="[bitvla/gr00t_n1_6/gr00t_n1_7] path to dataset_statistics.json. Default for bitvla: "

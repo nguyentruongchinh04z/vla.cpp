@@ -14,17 +14,37 @@
 
 from typing import Any
 
+import torch
+import numpy as np
+
+
+def convert_nested_dict(d):
+    result = {}
+    for k, v in d.items():
+        if isinstance(v, dict):
+            result[k] = convert_nested_dict(v)
+        elif isinstance(v, np.ndarray):
+            result[k] = torch.from_numpy(v)
+        else:
+            result[k] = v
+    return result
+
+
 class BasePipelineAdapter:
-    def __init__(self, client: Any, parser: Any, arch: str):
+    def __init__(self, client: Any = None):
         self._client = client
-        self._parser = parser
-        self.arch = arch
 
     def reset(self):
         return self._client.reset()
 
-    def get_action(self, obs: dict[str, Any]) -> Any:
-        parsed_obs = self._parser.parse_observation(obs)
+    def get_action(self, obs: dict[str, Any]) -> np.ndarray:
+        parsed_obs = self.parse_observation(obs)
         action = self._client.get_action(parsed_obs)
-        parsed_action = self._parser.parse_action(action)
+        parsed_action = self.parse_action(action)
         return parsed_action
+
+    def parse_observation(self, obs: dict[str, Any]) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def parse_action(self, action: np.ndarray) -> np.ndarray:
+        raise NotImplementedError
