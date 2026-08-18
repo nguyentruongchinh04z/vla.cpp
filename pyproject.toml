@@ -29,6 +29,13 @@ client = [
     "transformers>=4.51,<5",
     "numpy>=1.24",
 ]
+openvino = [
+    "lerobot[dataset]==0.6.1",
+    "pyzmq>=25",
+    "msgpack>=1.1",
+    "msgpack-numpy>=0.4.8",
+]
+
 
 # Deps-only project: the code lives in scripts/ and eval/, not an importable package.
 [tool.uv]

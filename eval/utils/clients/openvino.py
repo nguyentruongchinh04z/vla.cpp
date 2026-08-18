@@ -125,6 +125,10 @@ class OpenVINOInferenceClient:
     def reset(self) -> None:
         self._action_queue.clear()
 
+    def get_action_chunk(self, observations: Dict[str, Any]) -> np.ndarray:
+        action_chunk = self.call_endpoint("get_action", observations)
+        return action_chunk[:self.n_action_steps]
+
     def get_action(self, observations: Dict[str, Any]) -> np.ndarray:
         if not self._action_queue:
             action_chunk = self.call_endpoint("get_action", observations)

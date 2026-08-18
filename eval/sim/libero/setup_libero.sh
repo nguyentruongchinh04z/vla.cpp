@@ -24,8 +24,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Set paths relative to script location
 LIBERO_REPO="$SCRIPT_DIR/LIBERO"
-LIBERO_UV_ENV="$SCRIPT_DIR/libero_uv"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+LIBERO_UV_ENV="$REPO_ROOT/.venvs/libero"
 GITMODULES_PATH="$REPO_ROOT/.gitmodules"
 LIBERO_GIT_URL="$(git config -f "$GITMODULES_PATH" --get submodule.external_dependencies/LIBERO.url 2>/dev/null || true)"
 
@@ -46,8 +46,8 @@ fi
 rm -rf "$LIBERO_UV_ENV"
 mkdir -p "$LIBERO_UV_ENV"
 # Keep uv cache local to avoid failures on broken/unwritable ~/.cache mounts.
-uv venv "$LIBERO_UV_ENV/.venv" --python 3.10
-source "$LIBERO_UV_ENV/.venv/bin/activate"
+uv venv "$LIBERO_UV_ENV" --python 3.10
+source "$LIBERO_UV_ENV/bin/activate"
 uv pip install -e "$LIBERO_REPO" --config-settings editable_mode=compat
 uv pip install \
 	hydra-core==1.2.0 \
